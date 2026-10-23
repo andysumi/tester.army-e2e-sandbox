@@ -189,6 +189,62 @@ export default {
 - 自社アプリの testID の付与状況と、`getByTestId` との相性。
 - 機密情報を含む画面をモデルに送ってよいか、社内ルールとの整合。
 
+## 6. 追加調査: Test Filters API（2026-10-23 時点）
+
+X の投稿で話題になっていた Test Filters API について、リリースノートと PR で確認しました。実際に動かしての検証はしていません。
+
+### 概要
+
+PR が影響しうるテストだけを実行する機能です。毎回全テストを回すと遅くて高くつく、という動機で追加されました（[PR #1206](https://github.com/tester-army/e2e/pull/1206)）。
+
+| 項目 | 内容 |
+|---|---|
+| フィルタの仕組み | `@e2e-dev/github` 0.4.3 が `filters` を提供 |
+| AI による判定 | `@e2e-dev/decision` 0.3.0 の `decisionFilter({ model })`。リリースノートの例は `gateway.decisionModel('typesafe-ai/jev')` |
+| カスタムフィルタ | 自分で書ける。設定ファイルは `context.configFile` として読める |
+| 必要なバージョン | e2e 0.21.3 以上 |
+| 実行方法 | `npx e2e run --changed-since origin/main` |
+| 事前確認 | `npx e2e list --changed-since origin/main` で除外結果をプレビュー |
+
+設定のイメージ（リリースノートの記述から組み立てたスケッチで、未実行）:
+
+```ts
+import { decisionFilter } from '@e2e-dev/decision';
+
+export default {
+  // ...
+  filters: [decisionFilter({ model })],
+} satisfies E2EConfig;
+```
+
+### 判定の安全設計（PR #1206 の説明より）
+
+- decision model が、差分でテストの検証内容が変わる確率と、保存したセッション設定が壊れる確率を見積もります。両方が20%未満のときだけ除外します。
+- 次の場合は全テストを実行します。
+  - 設定ファイルやロックファイルの変更
+  - テストファイル、セットアップファイル、スナップショットの変更
+  - `--last-failed` での再実行
+  - `pull_request_target` での実行（フォークの差分がシークレットと同じ場所でモデルに渡るのを避けるため）
+- 比較対象がない実行（main への push、マージキュー、ローカル）は全テストを実行します。
+- 除外されたテストは PR コメント、`junit.xml`、レポートに残ります。実行対象がゼロならエンジンもアプリも起動しません。
+
+### decision model と Jev
+
+- decision model は、自由な文章を生成せず、選択肢に確率を付けて答えるモデルです（[`docs/decision-models.mdx`](https://github.com/tester-army/e2e/blob/main/docs/decision-models.mdx)）。
+- フィルタ以外に、`agent.act` と `agent.assert` を LLM エージェントの代わりに decision model で動かす使い方もあります。
+- Jev は TypeSafe AI のモデルです（`@ai-sdk/typesafe-ai`、`TYPESAFE_AI_API_KEY`）。docs にモデル自体の説明はなく、OpenAI の `gpt-6-luna` なども使えるとされています。
+
+### 導入判断の観点
+
+- 数本の PoC では恩恵が小さく、テストが数十本に増えて CI の時間や費用が気になってから検討すれば十分です。
+- フィルタ自体がモデルを呼ぶため、その費用も含めて損得を測る必要があります。リリースノートに料金や呼び出し回数の記載はありません。
+- `decisionFilter` は PR の差分（ソースコード）をモデルに送ります。ソースコードの外部送信が社内ルール上問題ないか確認が必要です。`providerOptions` でゼロデータ保持などを設定できるとされています。
+- 判定が外れて必要なテストが落ちるリスクがあるため、main への push では全件実行する運用が保険になります。
+
+### バージョンの動き
+
+初回調査時の最新は 0.18.0 でしたが、2026-10-23 時点では e2e 0.21.3 です。更新が活発で、API が変わる前提で、PoC ではバージョンを固定してください。同じリリースで `e2e upgrade`、`e2e init --example`、JavaScript の設定ファイル対応、`--action-timeout` / `--assertion-timeout`、Playwright 1.64.1 への更新も入っています。
+
 ## 参考リンク
 
 - [tester-army/e2e（GitHub）](https://github.com/tester-army/e2e)
@@ -197,4 +253,7 @@ export default {
 - [CI](https://github.com/tester-army/e2e/blob/main/docs/ci.mdx)
 - [モバイル](https://github.com/tester-army/e2e/blob/main/docs/mobile.mdx)
 - [クイックスタート](https://github.com/tester-army/e2e/blob/main/docs/quickstart.mdx)
+- [Test Filters の PR #1206](https://github.com/tester-army/e2e/pull/1206)
+- [リリース一覧](https://github.com/tester-army/e2e/releases)
+- [Decision models](https://github.com/tester-army/e2e/blob/main/docs/decision-models.mdx)
 - [公式サイト](https://tester.army/e2e)（調査環境からは未取得）
