@@ -35,13 +35,13 @@
 | A | 環境構築とモデルなしのテスト | 調査レポート 4章・8章の PoC | 完了 | 第3章 |
 | B | エージェントのテストとリプレイキャッシュ | 調査レポート 5章「日本語の指示の精度」「利用料」 | 完了（ログイン1件） | 第4章 |
 | C | 誤パス（失敗すべきテストが通らないか） | 調査レポート 5章「誤パス」 | 一部完了 | 第5章 |
-| 1 | `credentials` / `secrets` とログインセッション（`test.setup`） | B で、パスワードが平文で残ったため | 未着手 | 第7章 |
-| 2 | 画像比較（`toHaveScreenshot`） | ドキュメント `visual-testing` | 未着手 | 第7章 |
-| 3 | 名前付きエージェントと `agent.assert` | ドキュメント `agents` | 未着手 | 第7章 |
-| 4 | 探索（`e2e explore`） | ドキュメント `explore` | 未着手 | 第7章 |
-| 5 | 画面変更時の引き継ぎ（ハンドオフ） | 調査レポート 5章 | 未着手 | 第7章 |
-| 6 | バグバッシュ | ドキュメント `bug-bash` | 未着手 | 第7章 |
-| 7 | CI（GitHub Actions）とキャッシュの運用 | 調査レポート 4章・8章 | 未着手 | 第7章 |
+| 1 | `credentials` / `secrets` とログインセッション（`test.setup`） | B で、パスワードが平文で残ったため | 完了（`secrets` は未確認） | 第6章 |
+| 2 | 画像比較（`toHaveScreenshot`） | ドキュメント `visual-testing` | 未着手 | 第8章 |
+| 3 | 名前付きエージェントと `agent.assert` | ドキュメント `agents` | 未着手 | 第8章 |
+| 4 | 探索（`e2e explore`） | ドキュメント `explore` | 未着手 | 第8章 |
+| 5 | 画面変更時の引き継ぎ（ハンドオフ） | 調査レポート 5章 | 未着手 | 第8章 |
+| 6 | バグバッシュ | ドキュメント `bug-bash` | 未着手 | 第8章 |
+| 7 | CI（GitHub Actions）とキャッシュの運用 | 調査レポート 4章・8章 | 未着手 | 第8章 |
 
 **この順番にした理由**
 
@@ -177,6 +177,8 @@ await agent.act('メールアドレス {email} とパスワード {password} で
 await expect(browser).toHaveURL('/ja/mypage.html');
 ```
 
+第6章で、パスワードを `Secret` として渡す形に変えました。
+
 ### 4.4 結果
 
 | 項目 | 1回目（記録なし） | 2回目（キャッシュから再生） |
@@ -198,7 +200,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - **再生は速くて無料:** 2回目は、ロケータだけのテストと同程度の時間で、トークンは0でした。
 - **金額は表示されない:** `--debug` の表の `cost` は空でした。金額が出るのは Gateway 経由のときだけです。
 - **2種類の「キャッシュ」がある:** 実行結果の `46% cached` などは、Anthropic 側のプロンプトキャッシュです。e2e のリプレイキャッシュ（`Cache 1 replayed` など）とは別のものです。
-- **キャッシュに入力値が平文で残る:** `.e2e/cache/` の記録に、パスワードがそのまま保存されていました。キャッシュをコミットする運用では、`credentials` か `secrets` が必要です（項目1）。
+- **キャッシュに入力値が平文で残る:** `.e2e/cache/` の記録に、パスワードがそのまま保存されていました。キャッシュをコミットする運用では、`credentials` か `secrets` が必要です（第6章で対応）。
 - **キャッシュが外れる条件:** テスト名、ファイルの場所、指示文、`params` の値などです（`docs/cache.mdx` の「What must match」）。モデルや `system` を変えても外れません。新しい設定を試すときは `--no-cache` が必要です。
 - **警告が出る:** AI SDK が「このモデルの設定では `toolChoice: 'required'` を使えないので `auto` にした」と警告します。今回の実行では問題は出ていません。
 
@@ -254,30 +256,92 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - 元の指示文（「ログインする」）のままで、意図を隠したときにどうなるかは試していない。
 - 同じ条件で何度か実行したときに、結果がぶれないかは見ていない。
 
-## 6. ここまでのまとめ
+## 6. `credentials` / `secrets` とログインセッション（項目1）
 
-- **モデルなしでも、十分に使える:** ロケータ、ページオブジェクト、fixture、データ駆動で、保守しやすいテストが書けた。費用はかからない。
-- **エージェントは、日本語の短い指示で動く:** 2回目以降はキャッシュで再生され、費用も時間もロケータのテストと同程度になる。
-- **最後は必ずロケータで確かめる:** エージェントの判断は、テスト名や値の書き方で揺れる。ロケータでの確認は揺れない。
-- **テスト名と値には、確かめたい対象だけを書く:** 期待する結果を書くと、エージェントの判断が偏る。
-- **パスワードは平文で残る場所がある:** キャッシュ、トレース、動画。`credentials` と `secrets` の検証が次の課題。
-
-## 7. これからの検証（優先順）
-
-### 7.1 `credentials` / `secrets` とログインセッション（項目1）
-
-**確認するポイント**
+### 6.1 確認するポイント
 
 - パスワードを `credentials` で渡すと、モデルからは `<secret:名前>` しか見えないか。
 - キャッシュ（`.e2e/cache/`）とトレースに、値が残らなくなるか。
 - `test.setup` で1回だけログインしてセッションを保存し、他のテストでログイン済みの状態から始められるか。
 
-**注意点**
+### 6.2 変更したこと
 
-- セットアップでパスワードを入力すると、そのあとの explore ではスクリーンショットが撮れなくなる（`docs/explore.mdx`）。
-- このサイトのフォームは入力値を URL に付けて送るため、トレースの URL には残る可能性がある。
+| ファイル | 内容 |
+|---|---|
+| `e2e.config.ts` | `credentials` に `premium` と `normal` の2アカウントを追加 |
+| `tests/data/users.ts` | メールアドレスとパスワードを削除し、`credentials` の名前（`account`）を持たせた |
+| `tests/pages/login-page.ts` | `login()` が、文字列のほかに `Secret` も受け取れるようにした |
+| `tests/auth.setup.e2e.ts`（新規） | 会員ごとに1回だけログインし、セッションを保存する |
+| `tests/mypage.e2e.ts`（新規） | セッションを復元し、ログイン画面を通らずにマイページを確かめる（2本） |
+| `tests/login.e2e.ts`、`tests/login-agent.e2e.ts` | `credentials.user()` から値を受け取るようにした。エージェント版は、パスワードを `Secret` として `params` に渡す |
 
-### 7.2 画像比較（項目2）
+```ts
+const user = credentials.user(member.account);
+await loginPage.login(user.username, user.password); // password は Secret
+await session.save(member.account);
+```
+
+- パスワードは公開されている練習用の値なので、設定ファイルに直接書いた。業務では `process.env` から読む。実行時は `E2E_USER_PREMIUM_PASSWORD` などの環境変数で上書きできる。
+- `session.save()` はログインの成否を確かめないので、保存する前に URL と会員ランクを確かめている（`docs/authentication.mdx` の注意書き）。
+- 全9本（モデルなし8本、エージェント1本）になった。
+
+### 6.3 結果
+
+| 確認するポイント | 結果 |
+|---|---|
+| モデルから見えるのは `<secret:名前>` だけか | **はい。** パスワードは `type_secret` ツールで、名前（`premium.password`）を指定して入力された |
+| キャッシュに値が残らないか | **はい。** 名前（`"secret": "premium.password"`）だけが保存された |
+| トレースに値が残らないか | **はい。** URL の中のパスワードも `<secret:normal.password>` に置き換わった |
+| セッションを保存し、使い回せるか | **はい。** セッションなしではトップページへ戻され、ありならマイページを直接開けた |
+| セッションのファイルは残らないか | **はい。** `.e2e/sessions/` は権限 `0700` で作られ、実行後に空になった |
+
+モデルに送った内容は、`--ai-trace` で `.e2e/ai-trace.json` に保存して確かめた。一般会員のパスワード（`pass1234`）は、記録の中に1回も出てこなかった。
+
+**時間**
+
+| テスト | 時間 |
+|---|---|
+| ログイン画面を通るテスト | 1本あたり約5秒 |
+| セッションを使うマイページのテスト | 2本で約0.5秒（セットアップの約5秒は別） |
+| エージェント版の1回目（記録なし） | 22.7秒、モデル呼び出し2回、19.2k トークン |
+| エージェント版の2回目（再生） | 6.2秒、モデル呼び出し0回。`agent.act` は 0.7秒 |
+
+### 6.4 分かったこと
+
+- **セットアップは自動で動く:** セッションを使うテストを選べば、必要なセットアップだけが先に実行される。
+- **伏せ字は文字列の一致で判断するので、効きすぎることがある:** プレミアム会員のパスワードは `password` という単語そのもの。そのため、関係のない `password` まで置き換わった。
+
+  | 場所 | 本来 | 実際 |
+  |---|---|---|
+  | 指示文 | `パスワード {password} でログインする` | `パスワード {<secret:premium.password>} でログインする` |
+  | モデルに送った画面の情報 | `testid="password"` | `testid="<secret:premium.password>"` |
+  | キャッシュの記録 | `"testId": "password"` | `"testId": "<secret:premium.password>"` |
+  | トレースの URL | `&password=pass1234` | `&<secret:premium.password>=<secret:normal.password>` |
+
+  今回は、2回目の再生にも影響しなかった。ただ、テスト用でもパスワードは単語と重ならないランダムな値にする（私の提案）。
+- **e2e が自分で付けた情報は伏せ字にならない:** `purpose=password` や、ツールの説明文の中の `password` はそのままだった。
+- **パスワードは6文字以上が必要:** 短いと、`e2e list` も含めて、すべてのコマンドが `INVALID_CONFIG` で失敗する（`docs/authentication.mdx`。試してはいない）。
+- **古いキャッシュは手で消す必要がある:** `params` を変えると新しい記録ができるが、古い記録（平文のパスワード入り）は残る。今回は確かめてから削除した。
+
+### 6.5 確認できていないこと
+
+- 伏せ字の id でも再生できた理由（再生時の画面情報も同じく伏せ字になるからか、役割と名前で探しているからか）。
+- 2回目の再生が、前回（2.6秒）より速かった理由（0.7秒）。`Secret` を入力したあとは、モデル向けのスクリーンショットを撮らなくなるからかもしれない。
+- `secrets`（パスワード以外の秘密の値）の動き。今回は `credentials` だけを試した。
+- セットアップでパスワードを入力したセッションを、explore で使ったときの影響（スクリーンショットが撮れなくなる。`docs/explore.mdx`）。項目4で確かめる。
+
+## 7. ここまでのまとめ
+
+- **モデルなしでも、十分に使える:** ロケータ、ページオブジェクト、fixture、データ駆動で、保守しやすいテストが書けた。費用はかからない。
+- **エージェントは、日本語の短い指示で動く:** 2回目以降はキャッシュで再生され、費用も時間もロケータのテストと同程度になる。
+- **最後は必ずロケータで確かめる:** エージェントの判断は、テスト名や値の書き方で揺れる。ロケータでの確認は揺れない。
+- **テスト名と値には、確かめたい対象だけを書く:** 期待する結果を書くと、エージェントの判断が偏る。
+- **パスワードは `credentials` で渡す:** 平文だとキャッシュとトレースに残る。`credentials` で渡せば、モデル、キャッシュ、トレースのどこにも値が残らなかった（第6章）。動画はマスクされない。
+- **テスト用のパスワードも、単語と重ならない値にする:** 伏せ字は文字列の一致で判断するので、`password` のような値だと関係のない文字まで置き換わる。
+
+## 8. これからの検証（優先順）
+
+### 8.1 画像比較（項目2）
 
 **確認するポイント**
 
@@ -292,7 +356,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - 画像は OS ごとに別のファイルになる（`-web-darwin.png` など）。Mac で作った画像は、CI の Linux では使えない。
 - モデルは使わない。
 
-### 7.3 名前付きエージェントと `agent.assert`（項目3）
+### 8.2 名前付きエージェントと `agent.assert`（項目3）
 
 **確認するポイント**
 
@@ -305,7 +369,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - 判定（`assert`、`waitFor`、`extract`）には `system` が渡らず、`context` は渡る（`docs/agents.mdx`）。
 - `context` を変えると、キャッシュが外れる。
 
-### 7.4 探索（項目4）
+### 8.3 探索（項目4）
 
 **確認するポイント**
 
@@ -318,7 +382,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - 既定の上限は8ステップか10分。`--max-steps`（最大12）と `--timeout`（最大15分）で変えられる。
 - `issue` が1つでもあると、終了コードは1になる。`warning` では失敗しない。
 
-### 7.5 画面変更時の引き継ぎ（項目5）
+### 8.4 画面変更時の引き継ぎ（項目5）
 
 **確認するポイント**
 
@@ -329,7 +393,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 
 - 対象サイトは外部なので、画面を変えられない。公式の `with-vite` サンプルなど、手元で書き換えられるアプリが必要。
 
-### 7.6 バグバッシュ（項目6）
+### 8.5 バグバッシュ（項目6）
 
 **確認するポイント**
 
@@ -342,7 +406,7 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - 外部サイトに、同時に複数のブラウザでアクセスする。サイトには「負荷テストには利用しないでください」とあるので、同時に動かす数を絞る。
 - 動画はマスクされない。
 
-### 7.7 CI とキャッシュの運用（項目7）
+### 8.6 CI とキャッシュの運用（項目7）
 
 **確認するポイント**
 
@@ -360,6 +424,8 @@ await expect(browser).toHaveURL('/ja/mypage.html');
 - [HOTEL PLANISPHERE](https://hotel-example-site.takeyaqa.dev/)
 - [tester-army/e2e（GitHub）](https://github.com/tester-army/e2e)
 - [Page objects](https://github.com/tester-army/e2e/blob/main/docs/page-objects.mdx)
+- [Signing in（credentials とセッション）](https://github.com/tester-army/e2e/blob/main/docs/authentication.mdx)
+- [セキュリティのリファレンス](https://github.com/tester-army/e2e/blob/main/docs/reference/security.mdx)
 - [キャッシュ / リプレイ](https://github.com/tester-army/e2e/blob/main/docs/cache.mdx)
 - [モデル](https://github.com/tester-army/e2e/blob/main/docs/models.mdx)
 - [サブスクリプション](https://github.com/tester-army/e2e/blob/main/docs/subscriptions.mdx)
