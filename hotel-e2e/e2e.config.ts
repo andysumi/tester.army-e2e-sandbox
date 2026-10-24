@@ -3,7 +3,8 @@ import { web } from '@e2e-dev/web';
 
 export default {
   targets: [{
-    engine: web(),
+    // サイトに data-testid がないため、getByTestId で id 属性を参照する
+    engine: web({ testIdAttribute: 'id' }),
     app: {
       url: process.env.APP_URL ?? 'https://hotel-example-site.takeyaqa.dev',
     },
