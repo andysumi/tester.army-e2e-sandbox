@@ -1,7 +1,8 @@
 // サイトのトップページに掲載されている登録済みユーザ。
-// メールアドレスとパスワードは e2e.config.ts の credentials にあり、account はその名前（セッション名にも使う）
-export const premiumMember = { rank: 'プレミアム会員', account: 'premium' };
-export const normalMember = { rank: '一般会員', account: 'normal' };
+// メールアドレスとパスワードは e2e.config.ts の credentials にあり、account はその名前（セッション名とエージェント名にも使う）
+// seesPremiumPlan: 宿泊プランの一覧に「プレミアムプラン」が表示されるか
+export const premiumMember = { rank: 'プレミアム会員', account: 'premium', seesPremiumPlan: true };
+export const normalMember = { rank: '一般会員', account: 'normal', seesPremiumPlan: false };
 
 export const members = [premiumMember, normalMember];
 
