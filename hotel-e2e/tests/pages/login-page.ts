@@ -1,4 +1,4 @@
-import type { Locator, Screen } from 'e2e';
+import type { Locator, Screen, Secret } from 'e2e';
 
 export class LoginPage {
   readonly email: Locator;
@@ -12,7 +12,7 @@ export class LoginPage {
     this.submit = screen.getByTestId('login-button');
   }
 
-  async login(email: string, password: string) {
+  async login(email: string, password: string | Secret) {
     await this.email.fill(email);
     await this.password.fill(password);
     await this.submit.tap();

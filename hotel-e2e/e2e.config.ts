@@ -14,6 +14,13 @@ export default {
       maxModelCalls: 10,
     },
   },
+  // サイトのトップページに掲載されている登録済みユーザ。パスワードはテストでは Secret として扱われる
+  // 公開されている練習用の値なので直接書いている。業務では process.env から読む
+  // （実行時は E2E_USER_PREMIUM_PASSWORD などの環境変数で上書きできる）
+  credentials: {
+    premium: { username: 'ichiro@example.com', password: 'password' },
+    normal: { username: 'sakura@example.com', password: 'pass1234' },
+  },
   targets: [{
     // サイトに data-testid がないため、getByTestId で id 属性を参照する
     engine: web({ testIdAttribute: 'id' }),
