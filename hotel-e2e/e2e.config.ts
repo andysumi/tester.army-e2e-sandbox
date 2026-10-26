@@ -10,6 +10,10 @@ const qa = 'You are a thorough QA agent. Verify every outcome.';
 const budget = { maxSteps: 10, maxModelCalls: 10 };
 // アプリの用語。act と判定（assert など）の両方に渡る
 const vocabulary = 'HOTEL PLANISPHERE はホテルの宿泊予約サイト。宿泊プランの一覧は、ナビバーの「宿泊予約」から開く。表示されるプランは会員ランクで変わる。';
+// 宿泊予約画面の仕様。探索で、更新のタイミングを不具合と読み違えないように渡す
+const reserveSpec =
+  '宿泊予約画面の合計金額は、宿泊日・宿泊数・人数の入力欄からフォーカスが外れたとき（change イベント）に計算し直される。' +
+  '入力している途中は前の金額のままなのが仕様。値を入力したら Tab キーなどでフォーカスを外してから合計を確かめる。';
 
 export default {
   // agent.* のステップだけがモデルを呼ぶ。@ai-sdk/anthropic が ANTHROPIC_API_KEY を読む
@@ -20,6 +24,8 @@ export default {
     // ペルソナ。credentials とセッションの名前にそろえる
     premium: { model: sonnet, system: `${qa} You are a premium member of this hotel site.`, context: vocabulary, ...budget },
     normal: { model: sonnet, system: `${qa} You are a regular member of this hotel site.`, context: vocabulary, ...budget },
+    // 探索用。1ステップの上限は探索の既定（40）に戻す。テスト用の budget（10）では打ち切られたため
+    explorer: { model: sonnet, system: qa, context: `${vocabulary}\n${reserveSpec}`, maxSteps: 40, maxModelCalls: 40 },
   },
   // サイトのトップページに掲載されている登録済みユーザ。パスワードはテストでは Secret として扱われる
   // 公開されている練習用の値なので直接書いている。業務では process.env から読む
