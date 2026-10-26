@@ -1,14 +1,17 @@
 import type { E2EConfig } from 'e2e';
 import { web } from '@e2e-dev/web';
-import { gateway } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
 
+// 公式サンプル（examples/with-vite）をもとに、画面変更時の引き継ぎ（ハンドオフ）を確かめるための設定
 export default {
-  // The Vercel AI Gateway serves the model and reads AI_GATEWAY_API_KEY.
-  // Only tests that use `agent` need it; tests/deterministic.e2e.ts runs without one.
+  // agent.* のステップだけがモデルを呼ぶ。@ai-sdk/anthropic が ANTHROPIC_API_KEY を読む
   agents: {
     default: {
-      model: gateway('openai/gpt-6-luna-fast'),
+      model: anthropic('claude-sonnet-5-5'),
       system: 'You are a thorough QA agent. Verify every outcome.',
+      // hotel-e2e のテスト用エージェントと同じ上限
+      maxSteps: 10,
+      maxModelCalls: 10,
     },
   },
   targets: [
