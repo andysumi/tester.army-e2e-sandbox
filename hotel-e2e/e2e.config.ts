@@ -16,6 +16,9 @@ const reserveSpec =
   '入力している途中は前の金額のままなのが仕様。値を入力したら Tab キーなどでフォーカスを外してから合計を確かめる。';
 
 export default {
+  // バグバッシュの再現テスト（tests/bugbash/）は、不具合が直るまで失敗するので普段の実行から外す。
+  // e2e.bugbash.config.ts で実行するときだけ含める
+  tests: ['tests/**/*.e2e.ts', '!tests/bugbash/**'],
   // agent.* のステップだけがモデルを呼ぶ。@ai-sdk/anthropic が ANTHROPIC_API_KEY を読む
   agents: {
     default: { model: sonnet, system: qa, ...budget },
